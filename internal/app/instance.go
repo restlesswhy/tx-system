@@ -3,12 +3,11 @@ package app
 import (
 	"sync"
 	"txsystem/internal/models"
-
-	"github.com/sirupsen/logrus"
 )
 
 type instance struct {
 	id        int
+	store     Store
 	wg        *sync.WaitGroup
 	queue     []*models.TransactionRequest
 	txService TransactionService
@@ -28,13 +27,14 @@ func (i *instance) run() {
 	}()
 
 	for len(i.queue) > 0 {
-		// i.mu.Lock()
-		// logrus.Info(1111, len(i.queue))
 		tx := i.queue[0]
 		i.queue = i.queue[1:]
-		// time.Sleep(1 * time.Second)
-		logrus.Info(tx.Transaction)
-		// i.mu.Unlock()
+		switch tx.Transaction.Action {
+		case models.ADD:
+			
+		case models.SUBTRACT:
+
+		}
 	}
 }
 

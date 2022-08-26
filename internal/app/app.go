@@ -12,6 +12,7 @@ type Store interface {
 	CreateUser(u *models.User) error
 	CreateTx(tx *models.Transaction) error
 	UpdateTxStatusByID(status models.Status, id int) error
+	GetBalanceByUserID(id int) (int, error)
 }
 
 type TransactionService interface {
@@ -61,6 +62,7 @@ main:
 			if !ok {
 				inst = &instance{
 					id:        req.Transaction.UserID,
+					store:     t.store,
 					wg:        t.wg,
 					queue:     make([]*models.TransactionRequest, 0),
 					txService: t,
@@ -92,9 +94,20 @@ func (t *transactionService) Done(id int) {
 
 func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
 	tx.SetNewStatus()
-	
+
 	if err := t.store.CreateTx(tx); err != nil {
 		return errors.Wrap(err, "create tx error")
+	}
+
+	if tx.Action == models.SUBTRACT {
+		balance, err := t.store.GetBalanceByUserID(tx.UserID)
+		if err != nil {
+			return errors.Wrap(err, "get balance error")
+		}
+
+		if !tx.CheckSubtract(balance) {
+			return errors.New("low balance")
+		}
 	}
 	// res := make(chan error, 1)
 
@@ -125,4 +138,15 @@ func (t *transactionService) Close() error {
 	t.close <- struct{}{}
 	t.wg.Wait()
 	return nil
+}
+
+func (t *transactionService) checkPossibility(tx *models.Transaction) (bool, error) {
+	balance, err := t.store.GetBalanceByUserID(tx.UserID)
+	if err != nil {
+		return false, errors.Wrap(err, "get balance error")
+	}
+
+	tx.CheckSubtract(balance)
+
+	return true, nil
 }

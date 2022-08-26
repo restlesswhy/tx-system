@@ -22,7 +22,7 @@ type TransactionRequest struct {
 type Transaction struct {
 	ID       int       `json:"-"`
 	UserID   int       `json:"user_id,omitempty"`
-	Amount   int       `json:"amount,omitempty"`
+	Amount   uint      `json:"amount,omitempty"`
 	Action   Action    `json:"action,omitempty"`
 	CreateAt time.Time `json:"create_at,omitempty"`
 	Status   Status    `json:"status,omitempty"`
@@ -38,6 +38,14 @@ func (t Transaction) Validate() bool {
 	}
 
 	if t.Amount <= 0 {
+		return false
+	}
+
+	return true
+}
+
+func (t Transaction) CheckSubtract(balance int) bool {
+	if balance - int(t.Amount) < 0 {
 		return false
 	}
 

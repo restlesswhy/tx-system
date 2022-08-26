@@ -21,8 +21,8 @@ func (s *store) CreateUser(u *models.User) error {
 		INSERT INTO users
 		("id","balance")
 		VALUES
-		($1,$2)
-	;`
+		($1,$2);
+	`
 
 	_, err := s.pool.Exec(context.Background(), q, u.ID, u.Balance)
 	if err != nil {
@@ -38,8 +38,8 @@ func (s *store) CreateTx(tx *models.Transaction) error {
 		("user_id","amount","action","status")
 		VALUES
 		($1,$2,$3,$4,$5)
-		RETURNING "id", "create_at"
-	;`
+		RETURNING "id", "create_at";
+	`
 
 	if err := s.pool.QueryRow(context.Background(), q, tx.UserID, tx.Amount, tx.Amount, tx.Status).Scan(&tx.ID, &tx.CreateAt); err != nil {
 		return errors.Wrap(err, "create tx error")
@@ -52,8 +52,8 @@ func (s *store) UpdateTxStatusByID(status models.Status, id int) error {
 	q := `--sql
 		UPDATE txs
 		SET "status"=$1
-		WHERE "id"=$2
-	;`
+		WHERE "id"=$2;
+	`
 
 	_, err := s.pool.Exec(context.Background(), q, status, id)
 	if err != nil {
@@ -61,4 +61,24 @@ func (s *store) UpdateTxStatusByID(status models.Status, id int) error {
 	}
 
 	return nil
+}
+
+func (s *store) GetBalanceByUserID(id int) (int, error) {
+	balance := 0
+	
+	q := `--sql
+		SELECT balance
+		FROM "users"
+		WHERE "id"=$1;
+	`
+
+	if err := s.pool.QueryRow(context.Background(), q, id).Scan(&balance); err != nil {
+		return 0, errors.Wrap(err, "get balance error")
+	}
+
+	return balance, nil
+}
+
+func (s *store) UpdateBalanceByID(amount int) error {
+	
 }
