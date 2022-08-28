@@ -37,11 +37,11 @@ func (s *store) CreateTx(tx *models.Transaction) error {
 		INSERT INTO txs
 		("user_id","amount","action","status")
 		VALUES
-		($1,$2,$3,$4,$5)
+		($1,$2,$3,$4)
 		RETURNING "id", "create_at";
 	`
 
-	if err := s.pool.QueryRow(context.Background(), q, tx.UserID, tx.Amount, tx.Amount, tx.Status).Scan(&tx.ID, &tx.CreateAt); err != nil {
+	if err := s.pool.QueryRow(context.Background(), q, tx.UserID, tx.Amount, tx.Action, tx.Status).Scan(&tx.ID, &tx.CreateAt); err != nil {
 		return errors.Wrap(err, "create tx error")
 	}
 
@@ -79,6 +79,32 @@ func (s *store) GetBalanceByUserID(id int) (int, error) {
 	return balance, nil
 }
 
-func (s *store) UpdateBalanceByID(amount int) error {
-	
+func (s *store) AddBalanceByID(id int, amount uint) error {
+	q := `--sql
+		UPDATE users
+		SET "balance"="balance"+$1
+		WHERE "id"=$2;
+	`
+
+	_, err := s.pool.Exec(context.Background(), q, amount, id)
+	if err != nil {
+		return errors.Wrap(err, "add balance error")
+	}
+
+	return nil
 }
+
+func (s *store) SubtractBalanceByID(id int, amount uint) error {
+	q := `--sql
+		UPDATE users
+		SET "balance"="balance"-$1
+		WHERE "id"=$2;
+	`
+
+	_, err := s.pool.Exec(context.Background(), q, amount, id)
+	if err != nil {
+		return errors.Wrap(err, "subtract balance error")
+	}
+
+	return nil
+} 

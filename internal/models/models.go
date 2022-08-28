@@ -6,12 +6,12 @@ type Action string
 type Status int
 
 const (
-	ADD      Action = "add"
-	SUBTRACT Action = "subtract"
-
 	NEW_TX Status = iota + 1
 	DONE_TX
 	FAIL_TX
+
+	ADD      Action = "add"
+	SUBTRACT Action = "subtract"
 )
 
 type TransactionRequest struct {

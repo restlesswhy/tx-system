@@ -3,6 +3,8 @@ package app
 import (
 	"sync"
 	"txsystem/internal/models"
+
+	"github.com/sirupsen/logrus"
 )
 
 type instance struct {
@@ -31,9 +33,32 @@ func (i *instance) run() {
 		i.queue = i.queue[1:]
 		switch tx.Transaction.Action {
 		case models.ADD:
-			
-		case models.SUBTRACT:
+			if err := i.store.AddBalanceByID(tx.Transaction.UserID, tx.Transaction.Amount); err != nil {
+				if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.Transaction.ID); err != nil {
+					logrus.Errorf("change tx status error: %v", err)
+				}
 
+				logrus.Errorf("add balance error: %v", err)
+				continue
+			}
+
+			if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.Transaction.ID); err != nil {
+				logrus.Errorf("change tx status error: %v", err)
+			}
+
+		case models.SUBTRACT:
+			if err := i.store.SubtractBalanceByID(tx.Transaction.UserID, tx.Transaction.Amount); err != nil {
+				if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.Transaction.ID); err != nil {
+					logrus.Errorf("change tx status error: %v", err)
+				}
+
+				logrus.Errorf("subtract balance error: %v", err)
+				continue
+			}
+
+			if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.Transaction.ID); err != nil {
+				logrus.Errorf("change tx status error: %v", err)
+			}
 		}
 	}
 }

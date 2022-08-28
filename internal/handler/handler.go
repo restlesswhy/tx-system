@@ -19,7 +19,22 @@ func New(app App) *Handler {
 	return &Handler{app: app}
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	user := &models.User{}
+
+	if err := GetBody(r.Body, user); err != nil {
+		RespErr(w, err)
+		return
+	}
+
+	if err := h.app.CreateUser(user); err != nil {
+		RespErr(w, err)
+	}
+
+	RespOK(w, "")
+}
+
+func (h *Handler) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	tx := &models.Transaction{}
 	tx.CreateAt = time.Now()
 
@@ -29,17 +44,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.app.ChangeBalance(tx); err != nil {
-		RespErr(w, err)
-		return
-	}
-
-	RespOK(w, "")
-}
-
-func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	user := &models.User{}
-
-	if err := GetBody(r.Body, user); err != nil {
 		RespErr(w, err)
 		return
 	}

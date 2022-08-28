@@ -13,6 +13,8 @@ type Store interface {
 	CreateTx(tx *models.Transaction) error
 	UpdateTxStatusByID(status models.Status, id int) error
 	GetBalanceByUserID(id int) (int, error)
+	AddBalanceByID(id int, amount uint) error
+	SubtractBalanceByID(id int, amount uint) error
 }
 
 type TransactionService interface {
@@ -138,15 +140,4 @@ func (t *transactionService) Close() error {
 	t.close <- struct{}{}
 	t.wg.Wait()
 	return nil
-}
-
-func (t *transactionService) checkPossibility(tx *models.Transaction) (bool, error) {
-	balance, err := t.store.GetBalanceByUserID(tx.UserID)
-	if err != nil {
-		return false, errors.Wrap(err, "get balance error")
-	}
-
-	tx.CheckSubtract(balance)
-
-	return true, nil
 }

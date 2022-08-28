@@ -91,7 +91,7 @@ func createTables(pool *pgxpool.Pool) error {
 		"action" TEXT NOT NULL,
 		"create_at" TIMESTAMP DEFAULT now(),
 		"status" INT NOT NULL,
-		PRIMARY KEY ("id")
+		PRIMARY KEY ("id"),
 		CONSTRAINT "fk_user_id"
 			FOREIGN KEY ("user_id")
 				REFERENCES users("id")

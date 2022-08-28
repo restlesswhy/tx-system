@@ -10,8 +10,13 @@ import (
 func LoadRoutes(r *mux.Router, handler *Handler) *mux.Router {
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(Logging)
-	api.HandleFunc("/update", handler.Update).Methods("POST")
 	api.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("PONG!")) })
+
+	user := api.PathPrefix("/user").Subrouter()
+	user.HandleFunc("/create", handler.CreateUser).Methods(http.MethodPost)
+
+	userBalance := user.PathPrefix("/balance").Subrouter()
+	userBalance.HandleFunc("/update", handler.UpdateBalance).Methods(http.MethodPut)
 
 	return api
 }
