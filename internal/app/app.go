@@ -29,7 +29,7 @@ type transactionService struct {
 	store Store
 	close chan struct{}
 
-	req  chan *models.TransactionRequest
+	req  chan *models.Transaction
 	done chan int
 }
 
@@ -38,7 +38,7 @@ func New(store Store) *transactionService {
 		wg:    &sync.WaitGroup{},
 		store: store,
 		close: make(chan struct{}),
-		req:   make(chan *models.TransactionRequest),
+		req:   make(chan *models.Transaction),
 		done:  make(chan int),
 	}
 
@@ -60,23 +60,14 @@ main:
 			break main
 
 		case req := <-t.req:
-			inst, ok := clients[req.Transaction.UserID]
+			inst, ok := clients[req.UserID]
 			if !ok {
-				inst = &instance{
-					id:        req.Transaction.UserID,
-					store:     t.store,
-					wg:        t.wg,
-					queue:     make([]*models.TransactionRequest, 0),
-					txService: t,
-				}
+				inst = NewInstance(req.UserID, inst.store, inst.wg, inst.done)
 
-				clients[req.Transaction.UserID] = inst
+				clients[req.UserID] = inst
 			}
-			if err := inst.AddTx(req); err != nil {
-				// req.Res <- errors.Wrapf(err, "add tx to client %d queue error", req.Transaction.UserID)
-				continue
-			}
-			// req.Res <- nil
+
+			inst.GetRecvCh() <- req
 
 		case id := <-t.done:
 			t.mu.Lock()
@@ -113,13 +104,12 @@ func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
 	}
 	// res := make(chan error, 1)
 
-	req := &models.TransactionRequest{
-		Transaction: tx,
-		// Res:         res,
-	}
+	// req := &models.TransactionRequest{
+	// 	Transaction: tx,
+	// 	// Res:         res,
+	// }
 
-	t.req <- req
-
+	t.req <- tx
 	// err := <-req.Res
 	// if err != nil {
 	// 	return errors.Wrap(err, "change balance error")

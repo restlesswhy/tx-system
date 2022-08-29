@@ -2,20 +2,38 @@ package app
 
 import (
 	"sync"
+	"time"
 	"txsystem/internal/models"
 
 	"github.com/sirupsen/logrus"
 )
 
 type instance struct {
-	id        int
-	store     Store
-	wg        *sync.WaitGroup
-	queue     []*models.TransactionRequest
-	txService TransactionService
-	mu        sync.Mutex
+	id    int
+	store Store
+	wg    *sync.WaitGroup
+	queue []*models.Transaction
+	done  chan<- int
+	mu    sync.Mutex
+	recv  chan *models.Transaction
 
 	alive bool
+}
+
+func NewInstance(id int, store Store, wg *sync.WaitGroup, done chan<- int) *instance {
+	i := &instance{
+		id:    id,
+		store: store,
+		wg:    wg,
+		done:  done,
+		queue: make([]*models.Transaction, 0),
+		recv:  make(chan *models.Transaction),
+	}
+
+	wg.Add(1)
+	go i.run()
+
+	return i
 }
 
 func (i *instance) run() {
@@ -27,6 +45,19 @@ func (i *instance) run() {
 		i.wg.Done()
 		i.mu.Unlock()
 	}()
+
+main:
+	for {
+		select {
+		case <-time.After(5 * time.Second):
+			break main
+
+		case tx := <-i.recv:
+			i.mu.Lock()
+			i.queue = append(i.queue, tx)
+			i.mu.Unlock()
+		}
+	}
 
 	for len(i.queue) > 0 {
 		tx := i.queue[0]
@@ -61,6 +92,10 @@ func (i *instance) run() {
 			}
 		}
 	}
+}
+
+func (i *instance) GetRecvCh() chan<- *models.Transaction {
+	return i.recv
 }
 
 func (i *instance) AddTx(tx *models.TransactionRequest) error {
