@@ -14,10 +14,12 @@ type instance struct {
 	wg    *sync.WaitGroup
 	queue []*models.Transaction
 	done  chan<- int
-	mu    sync.Mutex
-	recv  chan *models.Transaction
 
-	alive bool
+	mu   sync.Mutex
+	recv chan *models.Transaction
+
+	close chan struct{}
+	stop  chan struct{}
 }
 
 func NewInstance(id int, store Store, wg *sync.WaitGroup, done chan<- int) *instance {
@@ -28,85 +30,119 @@ func NewInstance(id int, store Store, wg *sync.WaitGroup, done chan<- int) *inst
 		done:  done,
 		queue: make([]*models.Transaction, 0),
 		recv:  make(chan *models.Transaction),
+		close: make(chan struct{}),
+		stop:  make(chan struct{}),
 	}
 
-	wg.Add(1)
-	go i.run()
+	wg.Add(2)
+	go i.reciever()
+	go i.worker()
 
 	return i
 }
 
-func (i *instance) run() {
-	i.alive = true
-	defer func() {
-		i.mu.Lock()
-		i.txService.Done(i.id)
-		i.alive = false
-		i.wg.Done()
-		i.mu.Unlock()
-	}()
+func (i *instance) worker() {
+	logrus.Info("start worker")
+	// defer logrus.Info("worker closed")
+	defer i.wg.Done()
 
 main:
 	for {
 		select {
-		case <-time.After(5 * time.Second):
+		case <-i.stop:
 			break main
 
-		case tx := <-i.recv:
+		case <-i.close:
+			break main
+
+		default:
+			// fmt.Println(2)
+			if len(i.queue) > 0 {
+				logrus.Info("got some in queue")
+				tx := i.queue[0]
+				i.queue = i.queue[1:]
+				switch tx.Action {
+				case models.ADD:
+					if err := i.store.AddBalanceByID(tx.UserID, tx.Amount); err != nil {
+						if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.ID); err != nil {
+							logrus.Errorf("change tx status error: %v", err)
+						}
+
+						logrus.Errorf("add balance error: %v", err)
+						continue
+					}
+
+					if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.ID); err != nil {
+						logrus.Errorf("change tx status error: %v", err)
+					}
+
+				case models.SUBTRACT:
+					if err := i.store.SubtractBalanceByID(tx.UserID, tx.Amount); err != nil {
+						if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.ID); err != nil {
+							logrus.Errorf("change tx status error: %v", err)
+						}
+
+						logrus.Errorf("subtract balance error: %v", err)
+						continue
+					}
+
+					if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.ID); err != nil {
+						logrus.Errorf("change tx status error: %v", err)
+					}
+				}
+			}
+		}
+	}
+
+	logrus.Info("worker closed")
+}
+
+func (i *instance) reciever() {
+	logrus.Info("start reciever")
+	defer logrus.Info("reciever closed")
+	defer i.wg.Done()
+
+	// t := time.NewTimer(3 * time.Second)
+	// main2:
+	for {
+		select {
+		// TODO: safeclose?
+		case <-i.close:
+			logrus.Info("close ch recv")
+			return
+
+		case <-time.After(3 * time.Second):
+			// fmt.Println(tt)
+			logrus.Info("closing instance....")
+			i.done <- i.id
+			// TODO: check if worker do job
+			close(i.stop)
+			return
+
+		case tx, ok := <-i.recv:
+			// logrus.Info("start tx")
+			// fmt.Println("start tx")
+			if !ok {
+				continue
+			}
+
 			i.mu.Lock()
 			i.queue = append(i.queue, tx)
 			i.mu.Unlock()
+			// fmt.Println("end tx")
+			// logrus.Info("end tx")
+			// t.Stop()
+			// default:
 		}
 	}
 
-	for len(i.queue) > 0 {
-		tx := i.queue[0]
-		i.queue = i.queue[1:]
-		switch tx.Transaction.Action {
-		case models.ADD:
-			if err := i.store.AddBalanceByID(tx.Transaction.UserID, tx.Transaction.Amount); err != nil {
-				if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.Transaction.ID); err != nil {
-					logrus.Errorf("change tx status error: %v", err)
-				}
-
-				logrus.Errorf("add balance error: %v", err)
-				continue
-			}
-
-			if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.Transaction.ID); err != nil {
-				logrus.Errorf("change tx status error: %v", err)
-			}
-
-		case models.SUBTRACT:
-			if err := i.store.SubtractBalanceByID(tx.Transaction.UserID, tx.Transaction.Amount); err != nil {
-				if err := i.store.UpdateTxStatusByID(models.FAIL_TX, tx.Transaction.ID); err != nil {
-					logrus.Errorf("change tx status error: %v", err)
-				}
-
-				logrus.Errorf("subtract balance error: %v", err)
-				continue
-			}
-
-			if err := i.store.UpdateTxStatusByID(models.DONE_TX, tx.Transaction.ID); err != nil {
-				logrus.Errorf("change tx status error: %v", err)
-			}
-		}
-	}
+	// logrus.Info("reciever closed")
 }
 
 func (i *instance) GetRecvCh() chan<- *models.Transaction {
 	return i.recv
 }
 
-func (i *instance) AddTx(tx *models.TransactionRequest) error {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	if !i.alive {
-		i.wg.Add(1)
-		go i.run()
-	}
-	i.queue = append(i.queue, tx)
-
-	return nil
+func (i *instance) Close() {
+	close(i.close)
 }

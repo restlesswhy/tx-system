@@ -1,8 +1,10 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"sync"
+	"time"
 	"txsystem/internal/models"
 
 	"github.com/pkg/errors"
@@ -25,12 +27,11 @@ type TransactionService interface {
 
 type transactionService struct {
 	wg    *sync.WaitGroup
-	mu    sync.Mutex
-	store Store
 	close chan struct{}
 
-	req  chan *models.Transaction
-	done chan int
+	store Store
+	req   chan *models.Transaction
+	done  chan int
 }
 
 func New(store Store) *transactionService {
@@ -52,6 +53,13 @@ func (t *transactionService) run() {
 	defer t.wg.Done()
 
 	clients := make(map[int]*instance)
+	ch := stats()
+	go func ()  {
+		for {
+			time.Sleep(1 * time.Second)
+			ch<-len(clients)	
+		}
+	}()
 
 main:
 	for {
@@ -62,7 +70,7 @@ main:
 		case req := <-t.req:
 			inst, ok := clients[req.UserID]
 			if !ok {
-				inst = NewInstance(req.UserID, inst.store, inst.wg, inst.done)
+				inst = NewInstance(req.UserID, t.store, t.wg, t.done)
 
 				clients[req.UserID] = inst
 			}
@@ -70,19 +78,25 @@ main:
 			inst.GetRecvCh() <- req
 
 		case id := <-t.done:
-			t.mu.Lock()
 			delete(clients, id)
-			t.mu.Unlock()
 		}
 	}
 
+	for _, v := range clients {
+		v.Close()
+	}
 }
 
-func (t *transactionService) Done(id int) {
-	select {
-	case <-t.close:
-	case t.done <- id:
-	}
+func stats() chan<- int {
+	ch := make(chan int)
+
+	go func ()  {
+		for i := range ch {
+			fmt.Println(i)
+		}
+	}()
+
+	return ch
 }
 
 func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
@@ -102,18 +116,8 @@ func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
 			return errors.New("low balance")
 		}
 	}
-	// res := make(chan error, 1)
-
-	// req := &models.TransactionRequest{
-	// 	Transaction: tx,
-	// 	// Res:         res,
-	// }
 
 	t.req <- tx
-	// err := <-req.Res
-	// if err != nil {
-	// 	return errors.Wrap(err, "change balance error")
-	// }
 
 	return nil
 }
@@ -127,7 +131,7 @@ func (t *transactionService) CreateUser(user *models.User) error {
 }
 
 func (t *transactionService) Close() error {
-	t.close <- struct{}{}
+	close(t.close)
 	t.wg.Wait()
 	return nil
 }
