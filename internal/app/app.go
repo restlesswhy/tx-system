@@ -1,10 +1,8 @@
 package app
 
 import (
-	"fmt"
 	"io"
 	"sync"
-	"time"
 	"txsystem/internal/models"
 
 	"github.com/pkg/errors"
@@ -40,7 +38,7 @@ func New(store Store) *transactionService {
 		store: store,
 		close: make(chan struct{}),
 		req:   make(chan *models.Transaction),
-		done:  make(chan int),
+		done:  make(chan int, 3),
 	}
 
 	t.wg.Add(1)
@@ -53,13 +51,13 @@ func (t *transactionService) run() {
 	defer t.wg.Done()
 
 	clients := make(map[int]*instance)
-	ch := stats()
-	go func ()  {
-		for {
-			time.Sleep(1 * time.Second)
-			ch<-len(clients)	
-		}
-	}()
+	// ch := stats()
+	// go func(chh chan<- int) {
+	// 	for {
+	// 		time.Sleep(1 * time.Second)
+	// 		chh <- len(clients)
+	// 	}
+	// }(ch)
 
 main:
 	for {
@@ -68,6 +66,7 @@ main:
 			break main
 
 		case req := <-t.req:
+
 			inst, ok := clients[req.UserID]
 			if !ok {
 				inst = NewInstance(req.UserID, t.store, t.wg, t.done)
@@ -79,6 +78,9 @@ main:
 
 		case id := <-t.done:
 			delete(clients, id)
+			// default:
+			// 	time.Sleep(300 * time.Millisecond)
+			// 	fmt.Println(2)
 		}
 	}
 
@@ -87,17 +89,17 @@ main:
 	}
 }
 
-func stats() chan<- int {
-	ch := make(chan int)
+// func stats() chan<- int {
+// 	ch := make(chan int)
 
-	go func ()  {
-		for i := range ch {
-			fmt.Println(i)
-		}
-	}()
+// 	go func() {
+// 		for i := range ch {
+// 			fmt.Println(i)
+// 		}
+// 	}()
 
-	return ch
-}
+// 	return ch
+// }
 
 func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
 	tx.SetNewStatus()

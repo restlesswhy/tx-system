@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
+
+	_ "net/http/pprof"
 )
 
 type Server struct {
@@ -39,6 +42,10 @@ func (s *Server) Run() {
 		if err := srv.ListenAndServe(); err != nil {
 			logrus.Fatal(err)
 		}
+	}()
+
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
 	logrus.Infof("srv start listening on port %s...", s.cfg.Addr)
