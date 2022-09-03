@@ -1,11 +1,14 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"sync"
+	"time"
 	"txsystem/internal/models"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type Store interface {
@@ -38,7 +41,7 @@ func New(store Store) *transactionService {
 		store: store,
 		close: make(chan struct{}),
 		req:   make(chan *models.Transaction),
-		done:  make(chan int, 3),
+		done:  make(chan int),
 	}
 
 	t.wg.Add(1)
@@ -50,14 +53,14 @@ func New(store Store) *transactionService {
 func (t *transactionService) run() {
 	defer t.wg.Done()
 
-	clients := make(map[int]*instance)
-	// ch := stats()
-	// go func(chh chan<- int) {
-	// 	for {
-	// 		time.Sleep(1 * time.Second)
-	// 		chh <- len(clients)
-	// 	}
-	// }(ch)
+	clients := make(map[int]chan<- *models.Transaction)
+	ch := stats()
+	go func(chh chan<- int) {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			chh <- len(clients)
+		}
+	}(ch)
 
 main:
 	for {
@@ -66,40 +69,44 @@ main:
 			break main
 
 		case req := <-t.req:
-
-			inst, ok := clients[req.UserID]
+			// fmt.Println(runtime.NumGoroutine())
+			recv, ok := clients[req.UserID]
 			if !ok {
-				inst = NewInstance(req.UserID, t.store, t.wg, t.done)
+				ch := make(chan *models.Transaction)
+				NewInstance(req.UserID, t.store, t.wg, t.done, ch)
 
-				clients[req.UserID] = inst
+				clients[req.UserID] = ch
+
+				ch <- req
+
+				continue
 			}
 
-			inst.GetRecvCh() <- req
+			recv <- req
 
 		case id := <-t.done:
+			logrus.Infof("del %d inst", id)
+			close(clients[id])
 			delete(clients, id)
-			// default:
-			// 	time.Sleep(300 * time.Millisecond)
-			// 	fmt.Println(2)
 		}
 	}
 
-	for _, v := range clients {
-		v.Close()
-	}
+	// for _, v := range clients {
+	// 	v.Close()
+	// }
 }
 
-// func stats() chan<- int {
-// 	ch := make(chan int)
+func stats() chan<- int {
+	ch := make(chan int)
 
-// 	go func() {
-// 		for i := range ch {
-// 			fmt.Println(i)
-// 		}
-// 	}()
+	go func() {
+		for i := range ch {
+			fmt.Println(i)
+		}
+	}()
 
-// 	return ch
-// }
+	return ch
+}
 
 func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
 	tx.SetNewStatus()

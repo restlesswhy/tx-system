@@ -1,7 +1,6 @@
 package main
 
 import (
-	"runtime"
 	"txsystem/config"
 	"txsystem/internal/server"
 	"txsystem/pkg/postgres"
@@ -10,7 +9,6 @@ import (
 )
 
 func main() {
-	runtime.SetBlockProfileRate(1)
 	cfg := config.Load()
 
 	pool, err := postgres.Connect(cfg)
