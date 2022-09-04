@@ -25,10 +25,6 @@ services:
     restart: always
     env_file:
       - .env
-    # environment:
-    #   - POSTGRES_USER=exezz
-    #   - POSTGRES_PASSWORD=123456
-    #   - POSTGRES_DB=tx_db
     volumes:
       - ./pgdata:/var/lib/postgresql/data
     networks:
