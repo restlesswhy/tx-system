@@ -23,10 +23,12 @@ services:
     ports:
       - "5432:5432"
     restart: always
-    environment:
-      - POSTGRES_USER=exezz
-      - POSTGRES_PASSWORD=123456
-      - POSTGRES_DB=tx_db
+    env_file:
+      - .env
+    # environment:
+    #   - POSTGRES_USER=exezz
+    #   - POSTGRES_PASSWORD=123456
+    #   - POSTGRES_DB=tx_db
     volumes:
       - ./pgdata:/var/lib/postgresql/data
     networks:

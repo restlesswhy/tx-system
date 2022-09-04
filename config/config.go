@@ -9,9 +9,9 @@ import (
 type Config struct {
 	Hostname string `mapstructure:"DB_HOSTNAME"`
 	Port     int    `mapstructure:"DB_PORT"`
-	Username string `mapstructure:"DB_USERNAME"`
-	Password string `mapstructure:"DB_PASSWORD"`
-	Database string `mapstructure:"DB_DATABASE"`
+	Username string `mapstructure:"POSTGRES_USER"`
+	Password string `mapstructure:"POSTGRES_PASSWORD"`
+	Database string `mapstructure:"POSTGRES_DB"`
 
 	Addr string `mapstructure:"SRV_ADDR"`
 }
