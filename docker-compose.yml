@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  app:
+    container_name: tx_app
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    ports:
+      - "6060:6060"
+      - "4000:4000"
+    depends_on:
+      - postgesql
+    restart: always
+    volumes:
+      - ./.env:/app/.env
+    networks:
+      - tx_network
+
+  postgesql:
+    image: postgres:13-alpine
+    container_name: tx_postgres
+    ports:
+      - "5432:5432"
+    restart: always
+    environment:
+      - POSTGRES_USER=exezz
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=tx_db
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - tx_network
+
+networks:
+  tx_network:
+    driver: bridge

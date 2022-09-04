@@ -1,10 +1,8 @@
 package app
 
 import (
-	"fmt"
 	"io"
 	"sync"
-	"time"
 	"txsystem/internal/models"
 
 	"github.com/pkg/errors"
@@ -54,13 +52,6 @@ func (t *transactionService) run() {
 	defer t.wg.Done()
 
 	clients := make(map[int]chan<- *models.Transaction)
-	ch := stats()
-	go func(chh chan<- int) {
-		for {
-			time.Sleep(100 * time.Millisecond)
-			chh <- len(clients)
-		}
-	}(ch)
 
 main:
 	for {
@@ -69,11 +60,10 @@ main:
 			break main
 
 		case req := <-t.req:
-			// fmt.Println(runtime.NumGoroutine())
 			recv, ok := clients[req.UserID]
 			if !ok {
 				ch := make(chan *models.Transaction)
-				NewInstance(req.UserID, t.store, t.wg, t.done, ch)
+				newInstance(req.UserID, t.store, t.wg, t.done, ch)
 
 				clients[req.UserID] = ch
 
@@ -90,22 +80,6 @@ main:
 			delete(clients, id)
 		}
 	}
-
-	// for _, v := range clients {
-	// 	v.Close()
-	// }
-}
-
-func stats() chan<- int {
-	ch := make(chan int)
-
-	go func() {
-		for i := range ch {
-			fmt.Println(i)
-		}
-	}()
-
-	return ch
 }
 
 func (t *transactionService) ChangeBalance(tx *models.Transaction) error {
