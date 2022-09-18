@@ -1,0 +1,18 @@
+serviceName: tx_system
+http:
+  port: :8000
+  development: true
+  basePath: /api/v1
+  productsPath: /api/v1/products
+  debugErrorsResponse: true
+logger:
+  level: debug
+  devMode: false
+  encoder: console
+postgres:
+  Host: tx_postgres
+  Port: "5432"
+  User: test
+  Password: "123456"
+  DB: tx_db
+  Sslmode: false

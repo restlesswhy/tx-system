@@ -1,10 +1,11 @@
-package handler
+package v1
 
 import (
 	"encoding/json"
 	"io"
 	"net/http"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/pkg/errors"
 )
 
@@ -28,20 +29,14 @@ func RespErr(w http.ResponseWriter, err error) {
 	}
 }
 
-func RespOK(w http.ResponseWriter, data interface{}) {
+func RespOK(c *fiber.Ctx, data any) {
 	r := ResponceOK{
 		Status:  http.StatusOK,
 		Success: "true",
 		Data:    data,
 	}
 
-	enc := json.NewEncoder(w)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-
-	if err := enc.Encode(r); err != nil {
-		http.Error(w, "failed encode responce", http.StatusInternalServerError)
-	}
+	c.JSON(r)
 }
 
 func GetBody(in io.ReadCloser, out interface{}) error {

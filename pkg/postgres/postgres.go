@@ -11,11 +11,11 @@ import (
 
 func Connect(cfg *config.Config) (*pgxpool.Pool, error) {
 	// Подключаемся к сиситемной роли в постгрес
-	databaseUrl := fmt.Sprintf(`postgres://%s:%s@%s:%d/%s`,
-		cfg.Username,
-		cfg.Password,
-		cfg.Hostname,
-		cfg.Port,
+	databaseUrl := fmt.Sprintf(`postgres://%s:%s@%s:%s/%s`,
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Host,
+		cfg.Postgres.Port,
 		"postgres")
 
 	pool, err := pgxpool.Connect(context.Background(), databaseUrl)
@@ -29,24 +29,24 @@ func Connect(cfg *config.Config) (*pgxpool.Pool, error) {
 
 	// Проверяем на существование БД
 	var exists bool
-	if err := pool.QueryRow(context.Background(), `SELECT COUNT(*)>0 AS db_exists FROM pg_database WHERE datname = $1;`, cfg.Database).Scan(&exists); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT COUNT(*)>0 AS db_exists FROM pg_database WHERE datname = $1;`, cfg.Postgres.Dbname).Scan(&exists); err != nil {
 		return nil, fmt.Errorf("cannot check if database exists: %v", err)
 	}
 
 	if !exists {
-		if err := createDB(pool, cfg.Database); err != nil {
+		if err := createDB(pool, cfg.Postgres.Dbname); err != nil {
 			return nil, fmt.Errorf("cannot init database: %v", err)
 		}
 	}
 	pool.Close()
 
 	// Инициализируем подключение к БД
-	databaseUrl = fmt.Sprintf(`postgres://%s:%s@%s:%d/%s`,
-		cfg.Username,
-		cfg.Password,
-		cfg.Hostname,
-		cfg.Port,
-		cfg.Database)
+	databaseUrl = fmt.Sprintf(`postgres://%s:%s@%s:%s/%s`,
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Host,
+		cfg.Postgres.Port,
+		cfg.Postgres.Dbname)
 
 	pool, err = pgxpool.Connect(context.Background(), databaseUrl)
 	if err != nil {

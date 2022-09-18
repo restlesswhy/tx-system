@@ -1,21 +1,30 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"txsystem/config"
 	"txsystem/internal/server"
+	"txsystem/pkg/logger"
 	"txsystem/pkg/postgres"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	cfg := config.Load()
+	log.Println("Starting microservice")
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	pool, err := postgres.Connect(cfg)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 
-	srv := server.New(pool, cfg)
-	srv.Run()
+	appLogger := logger.NewAppLogger(cfg.Logger)
+	appLogger.InitLogger()
+	appLogger.Named(fmt.Sprintf(`(%s)`, cfg.ServiceName))
+	appLogger.Infof("CFG: %+v", cfg)
+	appLogger.Fatal(server.New(appLogger, cfg, pool).Run())
 }
