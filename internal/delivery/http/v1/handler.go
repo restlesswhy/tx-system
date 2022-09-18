@@ -21,44 +21,38 @@ func New(app App) *handler {
 
 func (h *handler) createUser(c *fiber.Ctx) error {
 	user := &models.User{}
-
 	if err := c.BodyParser(user); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"result":  false,
-			"message": err.Error(),
+			"status": "error",
 		})
 	}
 
 	if err := h.app.CreateUser(user); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"result":  false,
-			"message": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status": "error",
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"result": true,
+		"status": "success",
 	})
 }
 
 func (h *handler) updateBalance(c *fiber.Ctx) error {
 	tx := &models.Transaction{}
-
 	if err := c.BodyParser(tx); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"result":  false,
-			"message": err.Error(),
+			"status": "error",
 		})
 	}
 
 	if err := h.app.ChangeBalance(tx); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"result":  false,
-			"message": err.Error(),
+			"status": "error",
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"result": true,
+		"status": "success",
 	})
 }

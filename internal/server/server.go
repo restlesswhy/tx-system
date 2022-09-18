@@ -15,8 +15,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/sirupsen/logrus"
 
+	"net/http"
 	_ "net/http/pprof"
 )
 
@@ -32,21 +32,13 @@ func New(log logger.Logger, cfg *config.Config, pool *pgxpool.Pool) *server {
 }
 
 func (s *server) Run() error {
-	_, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 
 	store := store.New(s.pool)
 	app := app.New(store)
 	controller := v1.New(app)
-	s.fiber.Group(s.cfg.Http.BasePath)
-	controller.SetupRoutes(s.fiber.Group(s.cfg.Http.BasePath))
-
-	// r := mux.NewRouter()
-
-	// srv := &http.Server{
-	// 	Addr:    s.cfg.Addr,
-	// 	Handler: v1.LoadRoutes(r, controller),
-	// }
+	controller.SetupRoutes(s.fiber)
 
 	go func() {
 		if err := s.runHttp(); err != nil {
@@ -56,21 +48,15 @@ func (s *server) Run() error {
 	}()
 	s.log.Infof("%s is listening on PORT: %v", s.getMicroserviceName(), s.cfg.Http.Port)
 
-	// go func() {
-	// 	if err := srv.ListenAndServe(); err != nil {
-	// 		logrus.Fatal(err)
-	// 	}
-	// }()
+	go func() {
+		s.log.Error(http.ListenAndServe(":6060", nil))
+	}()
 
-	// go func() {
-	// 	fmt.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
+	<-ctx.Done()
 
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-
-	<-ch
-	logrus.Info("stopping srv...")
+	if err := s.fiber.Shutdown(); err != nil {
+		s.log.Warnf("(Shutdown) err: %v", err)
+	}
 	app.Close()
 
 	return nil
